@@ -9,6 +9,31 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 
+const mongoose = require('mongoose');
+
+// Connexion MongoDB
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://argentinkev_db_user:yCjsxOiec0nviVCd@cluster0.i9dudlc.mongodb.net/chatapp?retryWrites=true&w=majority';
+mongoose.connect(MONGODB_URI).then(() => console.log('✅ MongoDB connecté')).catch(err => console.error('❌ Erreur MongoDB:', err));
+
+// Schémas MongoDB
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true, required: true },
+  password: { type: String, required: true }
+});
+
+const messageSchema = new mongoose.Schema({
+  channelId: String,
+  username: String,
+  content: String,
+  fileUrl: String,
+  fileName: String,
+  type: String,
+  timestamp: { type: Number, default: Date.now }
+});
+
+const User = mongoose.model('User', userSchema);
+const Message = mongoose.model('Message', messageSchema);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -55,28 +80,53 @@ app.post('/upload', upload.single('file'), (req, res) => {
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Champs manquants' });
-  if (users[username]) return res.status(400).json({ error: 'Pseudo déjà pris' });
-  const hash = await bcrypt.hash(password, 10);
-  users[username] = { password: hash };
-  const token = jwt.sign({ username }, JWT_SECRET);
-  res.json({ token, username });
+  try {
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(400).json({ error: 'Pseudo déjà pris' });
+    const hash = await bcrypt.hash(password, 10);
+    await User.create({ username, password: hash });
+    const token = jwt.sign({ username }, JWT_SECRET);
+    res.json({ token, username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
-
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const user = users[username];
-  if (!user) return res.status(401).json({ error: 'Utilisateur inconnu' });
-  const ok = await bcrypt.compare(password, user.password);
-  if (!ok) return res.status(401).json({ error: 'Mauvais mot de passe' });
-  const token = jwt.sign({ username }, JWT_SECRET);
-  res.json({ token, username });
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(401).json({ error: 'Utilisateur inconnu' });
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: 'Mauvais mot de passe' });
+    const token = jwt.sign({ username }, JWT_SECRET);
+    res.json({ token, username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
+
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 
 app.get('/channels', (req, res) => res.json(channels));
-app.get('/messages/:channelId', (req, res) => {
-  res.json((messages[req.params.channelId] || []).slice(-100));
+app.get('/messages/:channelId', async (req, res) => {
+  try {
+    const msgs = await Message.find({ channelId: req.params.channelId })
+      .sort({ timestamp: -1 })
+      .limit(100);
+    res.json(msgs.reverse());
+  } catch (err) {
+    console.error(err);
+    res.json([]);
+  }
 });
-
 io.use((socket, next) => {
   try {
     const decoded = jwt.verify(socket.handshake.auth.token, JWT_SECRET);
@@ -92,19 +142,34 @@ io.on('connection', (socket) => {
   onlineUsers[socket.id] = { username: socket.username };
   broadcastOnlineUsers();
 
-  socket.on('join_channel', (channelId) => {
-    socket.rooms.forEach(r => { if (r !== socket.id) socket.leave(r); });
-    socket.join(channelId);
-    socket.emit('channel_history', (messages[channelId] || []).slice(-100));
-  });
+  socket.on('join_channel', async (channelId) => {
+  socket.rooms.forEach(r => { if (r !== socket.id) socket.leave(r); });
+  socket.join(channelId);
+  try {
+    const msgs = await Message.find({ channelId }).sort({ timestamp: -1 }).limit(100);
+    socket.emit('channel_history', msgs.reverse());
+  } catch (err) {
+    console.error(err);
+    socket.emit('channel_history', []);
+  }
+});
 
-  socket.on('send_message', ({ channelId, content, fileUrl, fileName, type }) => {
-    const msg = { id: uuidv4(), username: socket.username, content, fileUrl, fileName, type: type || 'text', timestamp: Date.now() };
-    if (!messages[channelId]) messages[channelId] = [];
-    messages[channelId].push(msg);
-    if (messages[channelId].length > 500) messages[channelId].shift();
+  socket.on('send_message', async ({ channelId, content, fileUrl, fileName, type }) => {
+  try {
+    const msg = await Message.create({
+      channelId,
+      username: socket.username,
+      content,
+      fileUrl,
+      fileName,
+      type: type || 'text',
+      timestamp: Date.now()
+    });
     io.to(channelId).emit('new_message', msg);
-  });
+  } catch (err) {
+    console.error('Erreur save message:', err);
+  }
+});
 
   socket.on('join_voice', (channelId) => {
     if (!voiceRooms[channelId]) voiceRooms[channelId] = new Set();
