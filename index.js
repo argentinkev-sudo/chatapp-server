@@ -108,19 +108,13 @@ app.post('/login', async (req, res) => {
 });
 
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-
 app.get('/channels', (req, res) => res.json(channels));
 app.get('/messages/:channelId', async (req, res) => {
   try {
     const msgs = await Message.find({ channelId: req.params.channelId })
       .sort({ timestamp: -1 })
       .limit(100);
+      
     res.json(msgs.reverse());
   } catch (err) {
     console.error(err);
