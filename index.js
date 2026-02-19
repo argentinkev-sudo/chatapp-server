@@ -159,7 +159,7 @@ io.on('connection', (socket) => {
       type: type || 'text',
       timestamp: Date.now()
     });
-    io.to(channelId).emit('new_message', msg);
+    io.emit('new_message', msg);  // Envoyer à tout le monde
   } catch (err) {
     console.error('Erreur save message:', err);
   }
