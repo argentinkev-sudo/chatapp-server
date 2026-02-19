@@ -33,6 +33,7 @@ const messageSchema = new mongoose.Schema({
   fileUrl: String,
   fileName: String,
   type: String,
+  edited: { type: Boolean, default: false },
   timestamp: { type: Number, default: Date.now }
 });
 
@@ -167,6 +168,37 @@ io.on('connection', (socket) => {
     io.emit('new_message', msg);  // Envoyer à tout le monde
   } catch (err) {
     console.error('Erreur save message:', err);
+  }
+});
+
+// Éditer un message
+socket.on('edit_message', async ({ messageId, newContent }) => {
+  try {
+    const msg = await Message.findById(messageId);
+    if (!msg) return;
+    if (msg.username !== socket.username) return;
+    
+    msg.content = newContent;
+    msg.edited = true;
+    await msg.save();
+    
+    io.emit('message_edited', { messageId, content: newContent, edited: true });
+  } catch (err) {
+    console.error('Erreur édition message:', err);
+  }
+});
+
+// Supprimer un message
+socket.on('delete_message', async ({ messageId }) => {
+  try {
+    const msg = await Message.findById(messageId);
+    if (!msg) return;
+    if (msg.username !== socket.username) return;
+    
+    await Message.findByIdAndDelete(messageId);
+    io.emit('message_deleted', { messageId });
+  } catch (err) {
+    console.error('Erreur suppression message:', err);
   }
 });
 
