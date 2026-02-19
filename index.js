@@ -1,3 +1,5 @@
+require('dotenv').config();
+console.log("ENV TEST =", process.env.MONGODB_URI);
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -12,8 +14,11 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 
 // Connexion MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://argentinkev_db_user:yCjsxOiec0nviVCd@cluster0.i9dudlc.mongodb.net/chatapp?retryWrites=true&w=majority';
-mongoose.connect(MONGODB_URI).then(() => console.log('✅ MongoDB connecté')).catch(err => console.error('❌ Erreur MongoDB:', err));
+const MONGODB_URI = process.env.MONGODB_URI;
+
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log("✅ MongoDB connecté"))
+  .catch(err => console.error("❌ Erreur MongoDB:", err));
 
 // Schémas MongoDB
 const userSchema = new mongoose.Schema({
