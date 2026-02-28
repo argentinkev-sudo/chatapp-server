@@ -167,9 +167,10 @@ io.use((socket, next) => {
   }
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log(`✅ ${socket.username} connecté`);
-  onlineUsers[socket.id] = { username: socket.username };
+  const user = await User.findOne({ username: socket.username });
+  onlineUsers[socket.id] = { username: socket.username, avatar: user?.avatar || null };
   broadcastOnlineUsers();
 
   socket.on('join_channel', async (channelId) => {
@@ -236,12 +237,13 @@ socket.on('delete_message', async ({ messageId }) => {
   }
 });
 
-  socket.on('join_voice', (channelId) => {
+  socket.on('join_voice', async (channelId) => {
     if (!voiceRooms[channelId]) voiceRooms[channelId] = new Set();
+    const user = await User.findOne({ username: socket.username });
     const peers = [...voiceRooms[channelId]];
     voiceRooms[channelId].add(socket.id);
-    peers.forEach(peerId => io.to(peerId).emit('peer_joined', { peerId: socket.id, username: socket.username }));
-    socket.emit('voice_peers', peers.map(id => ({ peerId: id, username: onlineUsers[id]?.username })));
+    peers.forEach(peerId => io.to(peerId).emit('peer_joined', { peerId: socket.id, username: socket.username, avatar: user?.avatar || null }));
+    socket.emit('voice_peers', peers.map(id => ({ peerId: id, username: onlineUsers[id]?.username, avatar: onlineUsers[id]?.avatar })));
     broadcastVoiceRooms();
   });
 
