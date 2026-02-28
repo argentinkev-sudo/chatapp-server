@@ -23,7 +23,8 @@ mongoose.connect(MONGODB_URI)
 // Schémas MongoDB
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
-  password: { type: String, required: true }
+  password: { type: String, required: true },
+  avatar: { type: String, default: null }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -106,9 +107,37 @@ app.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ error: 'Mauvais mot de passe' });
     const token = jwt.sign({ username }, JWT_SECRET);
-    res.json({ token, username });
+    res.json({ token, username, avatar: user.avatar });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Upload avatar
+app.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, SECRET);
+    const user = await User.findOne({ username: decoded.username });
+    
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    
+    // Supprimer l'ancien avatar si existe
+    if (user.avatar) {
+      const oldPath = path.join(__dirname, user.avatar);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+    
+    // Sauvegarder le nouveau chemin
+    user.avatar = '/uploads/' + req.file.filename;
+    await user.save();
+    
+    res.json({ avatar: user.avatar });
+  } catch (err) {
+    console.error('Erreur upload avatar:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
