@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
 const messageSchema = new mongoose.Schema({
   channelId: String,
   username: String,
+  avatar: String,
   content: String,
   fileUrl: String,
   fileName: String,
@@ -185,6 +186,9 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', async ({ channelId, content, fileUrl, fileName, type }) => {
   try {
+    // Récupérer l'utilisateur pour avoir son avatar
+    const user = await User.findOne({ username: socket.username });
+
     const msg = await Message.create({
       channelId,
       username: socket.username,
