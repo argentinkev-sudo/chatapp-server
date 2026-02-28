@@ -13,6 +13,13 @@ const fs = require('fs');
 
 const mongoose = require('mongoose');
 
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: 'djugvj1zs',
+  api_key: '738422473782157',
+  api_secret: 'UdQ38-wXTI6jgXw8B5d4IQsdgAU'
+});  
+
 // Connexion MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -126,22 +133,30 @@ app.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
     
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     
-    // Supprimer l'ancien avatar si existe
-    if (user.avatar) {
-      const oldPath = path.join(__dirname, user.avatar);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
+    // Upload vers Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'chatapp_avatars',
+      public_id: `${decoded.username}_${Date.now()}`,
+      overwrite: true,
+      resource_type: 'auto'
+    });
     
-    // Sauvegarder le nouveau chemin
-    user.avatar = '/uploads/' + req.file.filename;
+    // Supprimer le fichier local temporaire
+    fs.unlinkSync(req.file.path);
+    
+    // Sauvegarder l'URL Cloudinary dans la BDD
+    user.avatar = result.secure_url;
     await user.save();
     
-    res.json({ avatar: user.avatar });
+    res.json({ avatar: result.secure_url });
   } catch (err) {
     console.error('Erreur upload avatar:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// Garde le reste tel quel
+app.get('/channels', (req, res) => res.json(channels));
 
 
 app.get('/channels', (req, res) => res.json(channels));
