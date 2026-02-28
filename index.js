@@ -288,9 +288,9 @@ socket.on('delete_message', async ({ messageId }) => {
   });
 
   function broadcastOnlineUsers() {
-    const unique = [...new Set(Object.values(onlineUsers).map(u => u.username))];
-    io.emit('online_users', unique);
-  }
+  const users = Object.values(onlineUsers);
+  io.emit('online_users', users);
+}
 
   function broadcastVoiceRooms() {
     const state = {};
