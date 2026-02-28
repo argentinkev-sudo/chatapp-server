@@ -120,7 +120,7 @@ app.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Non autorisé' });
     
-    const decoded = jwt.verify(token, SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findOne({ username: decoded.username });
     
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
