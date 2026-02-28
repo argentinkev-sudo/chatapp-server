@@ -192,6 +192,7 @@ io.on('connection', (socket) => {
     const msg = await Message.create({
       channelId,
       username: socket.username,
+      avatar: user?.avatar || null,
       content,
       fileUrl,
       fileName,
