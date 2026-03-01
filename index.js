@@ -293,10 +293,13 @@ socket.on('delete_message', async ({ messageId }) => {
 }
 
   function broadcastVoiceRooms() {
-    const state = {};
-    Object.entries(voiceRooms).forEach(([cId, peers]) => {
-      state[cId] = [...peers].map(id => onlineUsers[id]?.username).filter(Boolean);
-    });
+  const state = {};
+  Object.entries(voiceRooms).forEach(([cId, peers]) => {
+    state[cId] = [...peers].map(id => ({
+      username: onlineUsers[id]?.username,
+      avatar: onlineUsers[id]?.avatar
+    })).filter(u => u.username);
+  });
     io.emit('voice_rooms_state', state);
   }
 });
