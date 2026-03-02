@@ -172,6 +172,18 @@ app.get('/messages/:channelId', async (req, res) => {
     res.json([]);
   }
 });
+
+// Récupérer tous les utilisateurs (pour afficher EN LIGNE / HORS LIGNE)
+app.get('/all-users', async (req, res) => {
+  try {
+    const allUsers = await User.find({}, 'username avatar');
+    res.json(allUsers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+
 io.use((socket, next) => {
   try {
     const decoded = jwt.verify(socket.handshake.auth.token, JWT_SECRET);
