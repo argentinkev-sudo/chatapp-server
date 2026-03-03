@@ -252,6 +252,7 @@ io.on('connection', async (socket) => {
   const user = await User.findOne({ username: socket.username });
   onlineUsers[socket.id] = { username: socket.username, avatar: user?.avatar || null };
   broadcastOnlineUsers();
+  broadcastVoiceRooms();
 
   socket.on('join_channel', async (channelId) => {
   socket.rooms.forEach(r => { if (r !== socket.id) socket.leave(r); });
