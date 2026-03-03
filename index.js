@@ -31,7 +31,8 @@ mongoose.connect(MONGODB_URI)
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  avatar: { type: String, default: null }
+  avatar: { type: String, default: null },
+  role: { type: String, default: 'user' }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -181,6 +182,57 @@ app.get('/all-users', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json([]);
+  }
+});
+
+// Routes Admin
+app.get('/is-admin', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.json({ isAdmin: false });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findOne({ username: decoded.username });
+    
+    res.json({ isAdmin: user?.role === 'admin' });
+  } catch (err) {
+    res.json({ isAdmin: false });
+  }
+});
+
+app.delete('/admin/delete-user/:username', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const admin = await User.findOne({ username: decoded.username });
+    
+    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+    
+    await User.deleteOne({ username: req.params.username });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/admin/delete-message/:messageId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const admin = await User.findOne({ username: decoded.username });
+    
+    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+    
+    await Message.findByIdAndDelete(req.params.messageId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
