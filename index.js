@@ -229,6 +229,7 @@ app.delete('/admin/delete-message/:messageId', async (req, res) => {
     if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
     
     await Message.findByIdAndDelete(req.params.messageId);
+    io.emit('message_deleted', { messageId: req.params.messageId });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
