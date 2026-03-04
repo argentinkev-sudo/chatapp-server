@@ -168,7 +168,7 @@ app.get('/messages/:channelId', async (req, res) => {
 // Récupérer tous les utilisateurs (pour afficher EN LIGNE / HORS LIGNE)
 app.get('/all-users', async (req, res) => {
   try {
-    const allUsers = await User.find({}, 'username avatar');
+    const allUsers = await User.find({}, 'username avatar role');
     res.json(allUsers);
   } catch (err) {
     console.error(err);
@@ -221,6 +221,30 @@ app.delete('/admin/delete-message/:messageId', async (req, res) => {
     
     await Message.findByIdAndDelete(req.params.messageId);
     io.emit('message_deleted', { messageId: req.params.messageId });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Changer le rôle d'un utilisateur
+app.post('/admin/change-role', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const admin = await User.findOne({ username: decoded.username });
+    
+    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+    
+    const { username, role } = req.body;
+    if (!['admin', 'moderator', 'user'].includes(role)) {
+      return res.status(400).json({ error: 'Rôle invalide' });
+    }
+    
+    await User.updateOne({ username }, { role });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
