@@ -88,38 +88,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
-app.post('/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Pas de fichier' });
-  res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
-});
 
-app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Champs manquants' });
+app.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ error: 'Pseudo déjà pris' });
-    const hash = await bcrypt.hash(password, 10);
-    await User.create({ username, password: hash });
-    const token = jwt.sign({ username }, JWT_SECRET);
-    res.json({ token, username });
+    if (!req.file) return res.status(400).json({ error: 'Pas de fichier' });
+    
+    // Upload vers Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'chatapp_files',
+      public_id: `file_${Date.now()}`,
+      resource_type: 'auto'  // Supporte images, GIFs, vidéos
+    });
+    
+    // Supprimer le fichier temporaire local
+    const fs = require('fs');
+    fs.unlinkSync(req.file.path);
+    
+    res.json({ 
+      url: result.secure_url,  // URL Cloudinary
+      name: req.file.originalname 
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    const user = await User.findOne({ username });
-    if (!user) return res.status(401).json({ error: 'Utilisateur inconnu' });
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ error: 'Mauvais mot de passe' });
-    const token = jwt.sign({ username }, JWT_SECRET);
-    res.json({ token, username, avatar: user.avatar });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('Erreur upload Cloudinary:', err);
+    res.status(500).json({ error: 'Erreur upload' });
   }
 });
 
