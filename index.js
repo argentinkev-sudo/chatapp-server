@@ -176,6 +176,37 @@ app.get('/all-users', async (req, res) => {
   }
 });
 
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Champs manquants' });
+  try {
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(400).json({ error: 'Pseudo déjà pris' });
+    const hash = await bcrypt.hash(password, 10);
+    await User.create({ username, password: hash });
+    const token = jwt.sign({ username }, JWT_SECRET);
+    res.json({ token, username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(401).json({ error: 'Utilisateur inconnu' });
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: 'Mauvais mot de passe' });
+    const token = jwt.sign({ username }, JWT_SECRET);
+    res.json({ token, username, avatar: user.avatar });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Routes Admin
 app.get('/is-admin', async (req, res) => {
   try {
