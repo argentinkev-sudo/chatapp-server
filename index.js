@@ -217,7 +217,9 @@ app.delete('/admin/delete-message/:messageId', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const admin = await User.findOne({ username: decoded.username });
     
-    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+    if (!admin || (admin.role !== 'admin' && admin.role !== 'moderator')) {
+  return res.status(403).json({ error: 'Non autorisé' });
+}
     
     await Message.findByIdAndDelete(req.params.messageId);
     io.emit('message_deleted', { messageId: req.params.messageId });
