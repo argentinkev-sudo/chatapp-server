@@ -45,6 +45,7 @@ const messageSchema = new mongoose.Schema({
   fileName: String,
   type: String,
   edited: { type: Boolean, default: false },
+  reactions: { type: Array, default: [] },
   timestamp: { type: Number, default: Date.now }
 });
 
@@ -279,6 +280,75 @@ app.post('/admin/change-role', async (req, res) => {
     }
     
     await User.updateOne({ username }, { role });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Ajouter une réaction
+app.post('/add-reaction', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { messageId, emoji } = req.body;
+    
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ error: 'Message introuvable' });
+    
+    // Chercher si l'emoji existe déjà
+    const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
+    
+    if (reactionIndex >= 0) {
+      // L'emoji existe, ajouter l'utilisateur s'il n'y est pas déjà
+      if (!message.reactions[reactionIndex].users.includes(decoded.username)) {
+        message.reactions[reactionIndex].users.push(decoded.username);
+      }
+    } else {
+      // Nouvel emoji
+      message.reactions.push({ emoji, users: [decoded.username] });
+    }
+    
+    await message.save();
+    io.emit('reaction_updated', { messageId, reactions: message.reactions });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Retirer une réaction
+app.post('/remove-reaction', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { messageId, emoji } = req.body;
+    
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ error: 'Message introuvable' });
+    
+    const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
+    
+    if (reactionIndex >= 0) {
+      // Retirer l'utilisateur
+      message.reactions[reactionIndex].users = message.reactions[reactionIndex].users.filter(u => u !== decoded.username);
+      
+      // Si plus personne n'a cette réaction, supprimer l'emoji
+      if (message.reactions[reactionIndex].users.length === 0) {
+        message.reactions.splice(reactionIndex, 1);
+      }
+    }
+    
+    await message.save();
+    io.emit('reaction_updated', { messageId, reactions: message.reactions });
+    
     res.json({ success: true });
   } catch (err) {
     console.error(err);
