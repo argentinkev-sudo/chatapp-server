@@ -306,10 +306,12 @@ app.post('/add-reaction', async (req, res) => {
       // L'emoji existe, ajouter l'utilisateur s'il n'y est pas déjà
       if (!message.reactions[reactionIndex].users.includes(decoded.username)) {
         message.reactions[reactionIndex].users.push(decoded.username);
+        message.markModified('reactions');
       }
     } else {
       // Nouvel emoji
       message.reactions.push({ emoji, users: [decoded.username] });
+      message.markModified('reactions');
     }
     
     await message.save();
