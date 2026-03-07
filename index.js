@@ -474,6 +474,9 @@ socket.on('delete_message', async ({ messageId }) => {
     broadcastOnlineUsers();
     broadcastVoiceRooms();
   });
+  socket.on('ping', () => {
+  socket.emit('pong');
+});
 
   function broadcastOnlineUsers() {
   const users = Object.values(onlineUsers);
