@@ -255,7 +255,7 @@ app.delete('/admin/delete-message/:messageId', async (req, res) => {
 }
     
     await Message.findByIdAndDelete(req.params.messageId);
-    io.emit('message_deleted', { messageId: req.params.messageId });
+    onemit('message_deleted', { messageId: req.params.messageId });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -461,6 +461,9 @@ socket.on('delete_message', async ({ messageId }) => {
   socket.on('signal', ({ to, signal }) => {
     io.to(to).emit('signal', { from: socket.id, signal });
   });
+  socket.on('request_voice_rooms_state', () => {
+  broadcastVoiceRooms();
+});
 
   socket.on('disconnect', () => {
     console.log(`❌ ${socket.username} déconnecté`);
