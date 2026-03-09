@@ -255,7 +255,7 @@ app.delete('/admin/delete-message/:messageId', async (req, res) => {
 }
     
     await Message.findByIdAndDelete(req.params.messageId);
-    onemit('message_deleted', { messageId: req.params.messageId });
+    io.emit('message_deleted', { messageId: req.params.messageId });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
