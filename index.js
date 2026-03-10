@@ -465,6 +465,10 @@ socket.on('delete_message', async ({ messageId }) => {
   broadcastVoiceRooms();
 });
 
+socket.on('user_streaming', ({ username, streaming }) => {
+  io.emit('user_streaming_update', { username, streaming });
+});
+
   socket.on('disconnect', () => {
     console.log(`❌ ${socket.username} déconnecté`);
     Object.entries(voiceRooms).forEach(([cId, peers]) => {
