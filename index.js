@@ -32,7 +32,9 @@ const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   avatar: { type: String, default: null },
-  role: { type: String, default: 'user' }
+  role: { type: String, default: 'user' },
+   bio: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const messageSchema = new mongoose.Schema({
