@@ -377,12 +377,15 @@ app.post('/update-bio', async (req, res) => {
     
     const decoded = jwt.verify(token, JWT_SECRET);
     const { bio } = req.body;
+
+    console.log('📝 Mise à jour bio pour:', decoded.username, '- Bio:', bio);
     
     await User.findOneAndUpdate(
       { username: decoded.username },
       { bio: bio }
     );
     
+    console.log('✅ Bio sauvegardée !');
     res.json({ success: true });
   } catch (err) {
     console.error(err);
