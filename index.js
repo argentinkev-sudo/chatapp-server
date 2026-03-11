@@ -172,7 +172,7 @@ app.get('/messages/:channelId', async (req, res) => {
 // Récupérer tous les utilisateurs (pour afficher EN LIGNE / HORS LIGNE)
 app.get('/all-users', async (req, res) => {
   try {
-    const allUsers = await User.find({}, 'username avatar role');
+    const allUsers = await User.find({}, 'username avatar role bio createdAt');
     res.json(allUsers);
   } catch (err) {
     console.error(err);
