@@ -370,6 +370,26 @@ io.use((socket, next) => {
   }
 });
 
+app.post('/update-bio', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { bio } = req.body;
+    
+    await User.findOneAndUpdate(
+      { username: decoded.username },
+      { bio: bio }
+    );
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 io.on('connection', async (socket) => {
   console.log(`✅ ${socket.username} connecté`);
   const user = await User.findOne({ username: socket.username });
