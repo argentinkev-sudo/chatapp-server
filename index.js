@@ -34,7 +34,8 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String, default: null },
   role: { type: String, default: 'user' },
    bio: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  friends: { type: Array, default: [] }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -53,6 +54,19 @@ const messageSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
+
+const friendRequestSchema = new mongoose.Schema({
+  from: { type: String, required: true },
+  to: { type: String, required: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'accepted', 'rejected'], 
+    default: 'pending' 
+  },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const FriendRequest = mongoose.model('FriendRequest', friendRequestSchema);
 
 const app = express();
 const server = http.createServer(app);
@@ -387,6 +401,130 @@ app.post('/update-bio', async (req, res) => {
     
     console.log('✅ Bio sauvegardée !');
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Envoyer une demande d'ami
+app.post('/send-friend-request', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { targetUsername } = req.body;
+    
+    // Vérifier si l'utilisateur existe
+    const targetUser = await User.findOne({ username: targetUsername });
+    if (!targetUser) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    
+    // Vérifier si déjà ami
+    const user = await User.findOne({ username: decoded.username });
+    if (user.friends.includes(targetUsername)) {
+      return res.status(400).json({ error: 'Déjà ami' });
+    }
+    
+    // Vérifier si demande déjà envoyée
+    const existing = await FriendRequest.findOne({
+      from: decoded.username,
+      to: targetUsername,
+      status: 'pending'
+    });
+    if (existing) return res.status(400).json({ error: 'Demande déjà envoyée' });
+    
+    // Créer la demande
+    await FriendRequest.create({
+      from: decoded.username,
+      to: targetUsername
+    });
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Accepter une demande d'ami
+app.post('/accept-friend-request', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { requestId } = req.body;
+    
+    const request = await FriendRequest.findById(requestId);
+    if (!request || request.to !== decoded.username) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+    
+    // Marquer comme acceptée
+    request.status = 'accepted';
+    await request.save();
+    
+    // Ajouter aux listes d'amis
+    await User.findOneAndUpdate(
+      { username: request.from },
+      { $addToSet: { friends: request.to } }
+    );
+    await User.findOneAndUpdate(
+      { username: request.to },
+      { $addToSet: { friends: request.from } }
+    );
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Refuser une demande d'ami
+app.post('/reject-friend-request', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { requestId } = req.body;
+    
+    const request = await FriendRequest.findById(requestId);
+    if (!request || request.to !== decoded.username) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+    
+    // Supprimer la demande
+    await FriendRequest.findByIdAndDelete(requestId);
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Récupérer demandes et amis
+app.get('/my-friends', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Demandes reçues
+    const requests = await FriendRequest.find({
+      to: decoded.username,
+      status: 'pending'
+    });
+    
+    // Liste d'amis
+    const user = await User.findOne({ username: decoded.username });
+    const friendsList = await User.find({ username: { $in: user.friends } }, 'username avatar');
+    
+    res.json({ requests, friends: friendsList });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
