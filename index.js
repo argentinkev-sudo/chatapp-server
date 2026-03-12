@@ -68,6 +68,16 @@ const friendRequestSchema = new mongoose.Schema({
 
 const FriendRequest = mongoose.model('FriendRequest', friendRequestSchema);
 
+const privateMessageSchema = new mongoose.Schema({
+  from: { type: String, required: true },
+  to: { type: String, required: true },
+  content: { type: String, required: true },
+  edited: { type: Boolean, default: false },
+  timestamp: { type: Number, default: Date.now }
+});
+
+const PrivateMessage = mongoose.model('PrivateMessage', privateMessageSchema);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -525,6 +535,52 @@ app.get('/my-friends', async (req, res) => {
     const friendsList = await User.find({ username: { $in: user.friends } }, 'username avatar');
     
     res.json({ requests, friends: friendsList });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Envoyer un MP
+app.post('/send-pm', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { to, content } = req.body;
+    
+    const pm = await PrivateMessage.create({
+      from: decoded.username,
+      to: to,
+      content: content
+    });
+    
+    res.json({ success: true, message: pm });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Charger l'historique MP avec un ami
+app.post('/load-pm', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { friendUsername } = req.body;
+    
+    // Charger tous les messages entre les 2 utilisateurs
+    const messages = await PrivateMessage.find({
+      $or: [
+        { from: decoded.username, to: friendUsername },
+        { from: friendUsername, to: decoded.username }
+      ]
+    }).sort({ timestamp: 1 });
+    
+    res.json(messages);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
