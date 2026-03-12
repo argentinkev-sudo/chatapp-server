@@ -587,6 +587,54 @@ app.post('/load-pm', async (req, res) => {
   }
 });
 
+// Éditer un MP
+app.post('/edit-pm', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { messageId, newContent } = req.body;
+    
+    const msg = await PrivateMessage.findById(messageId);
+    if (!msg || msg.from !== decoded.username) {
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+    
+    msg.content = newContent;
+    msg.edited = true;
+    await msg.save();
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Supprimer un MP
+app.post('/delete-pm', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { messageId } = req.body;
+    
+    const msg = await PrivateMessage.findById(messageId);
+    if (!msg || msg.from !== decoded.username) {
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+    
+    await PrivateMessage.findByIdAndDelete(messageId);
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 io.on('connection', async (socket) => {
   console.log(`✅ ${socket.username} connecté`);
   const user = await User.findOne({ username: socket.username });
