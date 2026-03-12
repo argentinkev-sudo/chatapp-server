@@ -661,10 +661,15 @@ socket.on('delete_message', async ({ messageId }) => {
 
 // MP en temps réel
 socket.on('pm_sent', ({ to, message }) => {
+  console.log('🔔 PM envoyé vers:', to);
   // Trouver le socket du destinataire
   const recipientSocket = Object.values(io.sockets.sockets).find(s => s.username === to);
+
+console.log('🔍 Socket trouvé:', recipientSocket ? 'OUI' : 'NON');
+
   if (recipientSocket) {
     recipientSocket.emit('pm_received', message);
+    console.log('✅ PM transmis à', to);
   }
 });
 
