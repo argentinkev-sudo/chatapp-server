@@ -556,7 +556,7 @@ app.post('/send-pm', async (req, res) => {
       content: content
     });
     
-    res.json({ success: true, message: pm });
+    res.json({ success: true, message: pm.toObject() });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
