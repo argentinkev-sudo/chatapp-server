@@ -659,6 +659,15 @@ socket.on('delete_message', async ({ messageId }) => {
   }
 });
 
+// MP en temps réel
+socket.on('pm_sent', ({ to, message }) => {
+  // Trouver le socket du destinataire
+  const recipientSocket = Object.values(io.sockets.sockets).find(s => s.username === to);
+  if (recipientSocket) {
+    recipientSocket.emit('pm_received', message);
+  }
+});
+
   socket.on('join_voice', async (channelId) => {
     if (!voiceRooms[channelId]) voiceRooms[channelId] = new Set();
     const user = await User.findOne({ username: socket.username });
