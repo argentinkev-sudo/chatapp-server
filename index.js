@@ -792,4 +792,4 @@ socket.on('user_streaming', ({ username, streaming }) => {
 }
 });
 
-server.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
