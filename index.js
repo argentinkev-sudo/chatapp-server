@@ -768,28 +768,32 @@ socket.on('user_streaming', ({ username, streaming }) => {
   broadcastVoiceRooms();
 });
   socket.on('ping', () => {
-  socket.emit('pong');
-});
+    socket.emit('pong');
+  });
+
+  function broadcastOnlineUsers() {
+    const users = Object.values(onlineUsers);
+    io.emit('online_users', users);
+  }
 
   function broadcastVoiceRooms() {
-  const state = {};
-  Object.entries(voiceRooms).forEach(([cId, peers]) => {
-    peers.forEach(id => {
-      // Supprimer les peers fantômes automatiquement
-      if (!onlineUsers[id]) {
-        peers.delete(id);
-        console.log(`🧹 Peer fantôme supprimé: ${id}`);
-      }
+    const state = {};
+    Object.entries(voiceRooms).forEach(([cId, peers]) => {
+      peers.forEach(id => {
+        if (!onlineUsers[id]) {
+          peers.delete(id);
+          console.log(`🧹 Peer fantôme supprimé: ${id}`);
+        }
+      });
+      const validPeers = [...peers].map(id => ({
+        username: onlineUsers[id]?.username,
+        avatar: onlineUsers[id]?.avatar
+      })).filter(u => u.username);
+      
+      if (validPeers.length > 0) state[cId] = validPeers;
     });
-    const validPeers = [...peers].map(id => ({
-      username: onlineUsers[id]?.username,
-      avatar: onlineUsers[id]?.avatar
-    })).filter(u => u.username);
-    
-    if (validPeers.length > 0) state[cId] = validPeers;
-  });
-  io.emit('voice_rooms_state', state);
-}
+    io.emit('voice_rooms_state', state);
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
