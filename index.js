@@ -733,12 +733,18 @@ socket.on('pm_sent', ({ to, message }) => {
   });
 
   socket.on('leave_voice', (channelId) => {
-    if (voiceRooms[channelId]) {
-      voiceRooms[channelId].delete(socket.id);
-      voiceRooms[channelId].forEach(peerId => io.to(peerId).emit('peer_left', { peerId: socket.id }));
-    }
-    broadcastVoiceRooms();
-  });
+  console.log(`🚪 ${socket.username} quitte le salon: ${channelId}`);
+  console.log(`📊 voiceRooms avant:`, JSON.stringify([...( voiceRooms[channelId] || [])]));
+  
+  if (voiceRooms[channelId]) {
+    voiceRooms[channelId].delete(socket.id);
+    voiceRooms[channelId].forEach(peerId => io.to(peerId).emit('peer_left', { peerId: socket.id }));
+    if (voiceRooms[channelId].size === 0) delete voiceRooms[channelId];
+  }
+  
+  console.log(`📊 voiceRooms après:`, JSON.stringify([...(voiceRooms[channelId] || [])]));
+  broadcastVoiceRooms();
+});
 
   socket.on('signal', ({ to, signal }) => {
     io.to(to).emit('signal', { from: socket.id, signal });
