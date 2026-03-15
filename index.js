@@ -248,7 +248,7 @@ app.post('/register', async (req, res) => {
     const welcomeMsg = await Message.create({
       channelId: 'bienvenue',
       username: 'ChatBot',
-      avatar: null,
+      avatar: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png',
       role: 'bot',
       content: `WELCOME_CARD:${username}:${newUser.avatar || ''}`,
       type: 'welcome',
