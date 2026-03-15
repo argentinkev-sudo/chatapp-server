@@ -241,8 +241,21 @@ app.post('/register', async (req, res) => {
     const existing = await User.findOne({ username });
     if (existing) return res.status(400).json({ error: 'Pseudo déjà pris' });
     const hash = await bcrypt.hash(password, 10);
-    await User.create({ username, password: hash });
+    const newUser = await User.create({ username, password: hash });
     const token = jwt.sign({ username }, JWT_SECRET);
+
+    // ✅ Message de bienvenue dans le salon bienvenue
+    const welcomeMsg = await Message.create({
+      channelId: 'bienvenue',
+      username: 'ChatBot',
+      avatar: null,
+      role: 'bot',
+      content: `WELCOME_CARD:${username}:${newUser.avatar || ''}`,
+      type: 'welcome',
+      timestamp: Date.now()
+    });
+    io.emit('new_message', welcomeMsg);
+
     res.json({ token, username });
   } catch (err) {
     console.error(err);
