@@ -78,6 +78,14 @@ const privateMessageSchema = new mongoose.Schema({
 
 const PrivateMessage = mongoose.model('PrivateMessage', privateMessageSchema);
 
+const channelSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  type: { type: String, enum: ['text', 'voice'], required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const Channel = mongoose.model('Channel', channelSchema);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -175,11 +183,32 @@ app.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
   }
 });
 
-// Garde le reste tel quel
-app.get('/channels', (req, res) => res.json(channels));
+app.get('/channels', async (req, res) => {
+  try {
+    let textChannels = await Channel.find({ type: 'text' }).sort({ createdAt: 1 });
+    let voiceChannels = await Channel.find({ type: 'voice' }).sort({ createdAt: 1 });
 
+    // Créer les salons par défaut si la base est vide
+    if (textChannels.length === 0 && voiceChannels.length === 0) {
+      await Channel.insertMany([
+        { id: 'general', name: '💬 général', type: 'text' },
+        { id: 'blagues', name: '😂 blagues', type: 'text' },
+        { id: 'jeux', name: '🎮 jeux', type: 'text' },
+        { id: 'vocal1', name: '🔊 Vocal 1', type: 'voice' },
+        { id: 'vocal2', name: '🔊 Vocal 2', type: 'voice' },
+        { id: 'stream', name: '📺 Stream', type: 'voice' }
+      ]);
+      textChannels = await Channel.find({ type: 'text' }).sort({ createdAt: 1 });
+      voiceChannels = await Channel.find({ type: 'voice' }).sort({ createdAt: 1 });
+    }
 
-app.get('/channels', (req, res) => res.json(channels));
+    res.json({ text: textChannels, voice: voiceChannels });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ text: [], voice: [] });
+  }
+});
+
 app.get('/messages/:channelId', async (req, res) => {
   try {
     const msgs = await Message.find({ channelId: req.params.channelId })
@@ -391,6 +420,47 @@ io.use((socket, next) => {
     next();
   } catch {
     next(new Error('Non autorisé'));
+  }
+});
+
+// Créer un salon (admin only)
+app.post('/admin/create-channel', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const admin = await User.findOne({ username: decoded.username });
+    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+
+    const { name, type } = req.body;
+    if (!name || !type) return res.status(400).json({ error: 'Nom et type requis' });
+
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+    const channel = await Channel.create({ id, name, type });
+
+    io.emit('channel_created', channel);
+    res.json({ success: true, channel });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Supprimer un salon (admin only)
+app.delete('/admin/delete-channel/:channelId', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Non autorisé' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const admin = await User.findOne({ username: decoded.username });
+    if (admin?.role !== 'admin') return res.status(403).json({ error: 'Non autorisé' });
+
+    await Channel.deleteOne({ id: req.params.channelId });
+    io.emit('channel_deleted', { channelId: req.params.channelId });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
