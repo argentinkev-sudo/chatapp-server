@@ -191,6 +191,7 @@ app.get('/channels', async (req, res) => {
     // Créer les salons par défaut si la base est vide
     if (textChannels.length === 0 && voiceChannels.length === 0) {
       await Channel.insertMany([
+        { id: 'bienvenue', name: '👋 bienvenue', type: 'text' },
         { id: 'general', name: '💬 général', type: 'text' },
         { id: 'blagues', name: '😂 blagues', type: 'text' },
         { id: 'jeux', name: '🎮 jeux', type: 'text' },
