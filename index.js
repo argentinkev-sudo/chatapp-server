@@ -10,6 +10,7 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const fetch = require('node-fetch');
 
 const mongoose = require('mongoose');
 
@@ -420,10 +421,47 @@ app.post('/remove-reaction', async (req, res) => {
     await message.save();
     io.emit('reaction_updated', { messageId, reactions: message.reactions });
     
-    res.json({ success: true });
+   res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Route fetch preview lien
+app.get('/fetch-preview', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'URL manquante' });
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ChatViewBot/1.0)'
+      },
+      timeout: 5000
+    });
+
+    const html = await response.text();
+
+    const getMetaTag = (name) => {
+      const match = html.match(new RegExp(`<meta[^>]*(?:property|name)=["']${name}["'][^>]*content=["']([^"']*)["']`, 'i'))
+        || html.match(new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["']${name}["']`, 'i'));
+      return match ? match[1] : null;
+    };
+
+    const title = getMetaTag('og:title') 
+      || html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] 
+      || null;
+    const description = getMetaTag('og:description') 
+      || getMetaTag('description') 
+      || null;
+    const image = getMetaTag('og:image') || null;
+    const siteName = getMetaTag('og:site_name') || null;
+
+    res.json({ title, description, image, siteName, url });
+  } catch (err) {
+    console.error('Erreur fetch preview:', err);
+    res.status(500).json({ error: 'Impossible de récupérer la preview' });
   }
 });
 
