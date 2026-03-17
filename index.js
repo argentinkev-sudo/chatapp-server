@@ -833,13 +833,39 @@ socket.on('pm_sent', ({ to, message }) => {
   socket.on('signal', ({ to, signal }) => {
     io.to(to).emit('signal', { from: socket.id, signal });
   });
-  socket.on('request_voice_rooms_state', () => {
-  broadcastVoiceRooms();
-});
 
-socket.on('user_streaming', ({ username, streaming }) => {
-  io.emit('user_streaming_update', { username, streaming });
-});
+  socket.on('request_voice_rooms_state', () => {
+    broadcastVoiceRooms();
+  });
+
+  socket.on('user_streaming', ({ username, streaming }) => {
+    io.emit('user_streaming_update', { username, streaming });
+  });
+
+  // Déplacer un utilisateur vers un autre salon vocal (admin only)
+  socket.on('move_user_to_voice', async ({ targetUsername, targetChannelId }) => {
+    try {
+      const admin = await User.findOne({ username: socket.username });
+      if (admin?.role !== 'admin') return;
+
+      const targetSocketId = Object.keys(onlineUsers).find(id => onlineUsers[id].username === targetUsername);
+      if (!targetSocketId) return;
+
+      let currentChannelId = null;
+      Object.entries(voiceRooms).forEach(([cId, peers]) => {
+        if (peers.has(targetSocketId)) currentChannelId = cId;
+      });
+
+      io.to(targetSocketId).emit('force_move_voice', { 
+        fromChannelId: currentChannelId, 
+        toChannelId: targetChannelId 
+      });
+
+      console.log(`🔀 ${socket.username} déplace ${targetUsername} vers ${targetChannelId}`);
+    } catch (err) {
+      console.error('Erreur move_user:', err);
+    }
+  });
 
   socket.on('disconnect', () => {
   console.log(`❌ ${socket.username} déconnecté`);
