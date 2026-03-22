@@ -102,6 +102,11 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
+// Health check pour UptimeRobot
+app.get('/ping', (req, res) => {
+  res.status(200).send('OK');
+});
+
 const users = {};
 const channels = {
   text: [
