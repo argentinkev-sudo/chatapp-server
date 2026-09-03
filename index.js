@@ -91,7 +91,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 50e6
+  maxHttpBufferSize: 50e6,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'chatapp_secret_key';
